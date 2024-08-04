@@ -72,6 +72,11 @@ def capture_fingerprint(session_handle):
     sub_factor = wintypes.BYTE()
     reject_detail = wintypes.ULONG()
 
+    # Initialize the structures
+    unit_id.value = 0
+    sub_factor.value = 0
+    reject_detail.value = 0
+
     result = winbio.WinBioCaptureSample(
         session_handle,
         WINBIO_NO_SUBTYPE_AVAILABLE,
@@ -81,10 +86,16 @@ def capture_fingerprint(session_handle):
         ctypes.byref(sub_factor),
         ctypes.byref(reject_detail),
     )
+
     if result != 0:
         raise Exception(
             f"Failed to capture sample: {result} (reject detail: {reject_detail.value})"
         )
+
+    # Ensure sample is valid
+    if not sample or not sample.contents.StandardDataBlock.Data:
+        raise Exception("Captured sample data is invalid or empty")
+
     return sample
 
 
@@ -105,8 +116,7 @@ if __name__ == "__main__":
         fingerprint = capture_fingerprint(session_handle)
         print("Fingerprint captured successfully!")
 
-        # You can now use the fingerprint data for enrollment or verification
-        # For demonstration, we just print the size of the captured data
+        # Print the size of the captured data
         print(
             f"Captured fingerprint data size: {fingerprint.contents.StandardDataBlock.Size}"
         )
