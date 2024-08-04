@@ -82,7 +82,9 @@ def capture_fingerprint(session_handle):
         ctypes.byref(reject_detail),
     )
     if result != 0:
-        raise Exception(f"Failed to capture sample: {result}")
+        raise Exception(
+            f"Failed to capture sample: {result} (reject detail: {reject_detail.value})"
+        )
     return sample
 
 
