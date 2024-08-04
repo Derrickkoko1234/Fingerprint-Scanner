@@ -1,16 +1,14 @@
 import ctypes
 from ctypes import wintypes
-import time
 
 # Constants
 WINBIO_TYPE_FINGERPRINT = 0x00000008
 WINBIO_POOL_SYSTEM = 0x00000001
 WINBIO_FLAG_DEFAULT = 0x00000000
-WINBIO_BIR_QUALITY = 0x00000010
 WINBIO_CAPTURE_PURPOSE_ENROLL = 0x00000001
 WINBIO_NO_SUBTYPE_AVAILABLE = 0xFFFFFFFF
 
-# Load the DLL
+# Load the Winbio DLL
 winbio = ctypes.WinDLL("Winbio.dll")
 
 
@@ -23,11 +21,30 @@ class WINBIO_UNIT_ID(ctypes.Structure):
     _fields_ = [("unit_id", wintypes.ULONG)]
 
 
+class WINBIO_BIR_HEADER(ctypes.Structure):
+    _fields_ = [
+        ("Size", wintypes.ULONG),
+        ("HeaderVersion", wintypes.USHORT),
+        ("Type", wintypes.USHORT),
+        ("SubType", wintypes.USHORT),
+        ("Purpose", wintypes.USHORT),
+        ("DataFlags", wintypes.USHORT),
+    ]
+
+
 class WINBIO_BIR_DATA(ctypes.Structure):
     _fields_ = [
         ("Size", wintypes.ULONG),
         ("Flags", wintypes.ULONG),
         ("Data", ctypes.POINTER(ctypes.c_ubyte)),
+    ]
+
+
+class WINBIO_BIR(ctypes.Structure):
+    _fields_ = [
+        ("HeaderBlock", WINBIO_BIR_HEADER),
+        ("StandardDataBlock", WINBIO_BIR_DATA),
+        ("VendorDataBlock", WINBIO_BIR_DATA),
     ]
 
 
@@ -50,9 +67,10 @@ def open_session():
 
 # Capture fingerprint
 def capture_fingerprint(session_handle):
-    unit_id = WINBIO_UNIT_ID()
-    sample = WINBIO_BIR_DATA()
+    unit_id = wintypes.ULONG()
+    sample = ctypes.POINTER(WINBIO_BIR)()
     sub_factor = wintypes.BYTE()
+    reject_detail = wintypes.ULONG()
 
     result = winbio.WinBioCaptureSample(
         session_handle,
@@ -61,7 +79,7 @@ def capture_fingerprint(session_handle):
         ctypes.byref(unit_id),
         ctypes.byref(sample),
         ctypes.byref(sub_factor),
-        None,
+        ctypes.byref(reject_detail),
     )
     if result != 0:
         raise Exception(f"Failed to capture sample: {result}")
@@ -87,7 +105,9 @@ if __name__ == "__main__":
 
         # You can now use the fingerprint data for enrollment or verification
         # For demonstration, we just print the size of the captured data
-        print(f"Captured fingerprint data size: {fingerprint.Size}")
+        print(
+            f"Captured fingerprint data size: {fingerprint.contents.StandardDataBlock.Size}"
+        )
 
     except Exception as e:
         print(f"Error: {e}")
